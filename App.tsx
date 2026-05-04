@@ -10,6 +10,8 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {Alert} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { ColorValue } from "react-native";
 
 //hava durumu tutan tıp
 type WeatherType = {
@@ -54,25 +56,25 @@ export default function App() {
   const[favorites, setFavorites] = useState<string[]>([]);
 
   //hava durumuna gore background color değıs
-const getBackgroundColor = (main?: string): string => {
+const getBackgroundGradient = (main?: string): readonly [ColorValue, ColorValue] =>{
   switch (main) {
-    case "Clear":         
-      return "#87CEEB";   
+    case "Clear": 
+      return [ "#B3E5FC", "#4FC3F7"];
 
-    case "Clouds":        
-      return "#90A4AE"; 
+    case "Clouds":     
+      return ["#ECEFF1", "#90A4AE"];
 
-    case "Rain":          
-      return "#778899";  
+    case "Rain": 
+      return ["#4FC3F7", "#01579B"];
 
-    case "Snow":         
-      return "#E1F5FE";   
+    case "Snow": 
+      return ["#E1F5FE", "#B3E5FC"];
 
-    case "Thunderstorm":  
-      return "#708090";  
+    case "Thunderstorm": 
+      return ["#616161", "#263238"];
 
-    default:           
-      return "#B3E5FC";  
+    default:
+      return ["#B3E5FC", "#81D4FA"];
   }
 };
 
@@ -214,13 +216,10 @@ const removeFavorite = (cityToRemove: string) => {
 
   //UI
   return (
-    <View
-      style={{
-        flex: 1,
-        padding: 20,
-        backgroundColor: getBackgroundColor(weather?.weather?.[0]?.main),
-      }}
-    >
+<LinearGradient
+  colors={getBackgroundGradient(weather?.weather?.[0]?.main) || "Clear"}
+  style={{ flex: 1, padding: 20 }}
+>
       <TextInput
         placeholder="Şehir giriniz..."
         value={city}
@@ -362,6 +361,6 @@ const removeFavorite = (cityToRemove: string) => {
           </View>
         )}
       />
-    </View>
+    </LinearGradient>
   );
 }
