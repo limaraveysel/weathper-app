@@ -10,10 +10,10 @@ import {
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {Alert} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { ColorValue } from "react-native";
+import { LinearGradient } from "expo-linear-gradient"; 
+import { ColorValue } from "react-native"; 
 
-//hava durumu tutan tıp
+//hava durumu tutan tip
 type WeatherType = {
   name: string;
   main: {
@@ -48,14 +48,17 @@ type ForecastItem = {
 const API_KEY = "e89544cef341bdb1e99a39e4d3ec19da"; //openweathermap api anahtarı
 
 export default function App() {
-  const [city, setCity] = useState<string>("Istanbul");  //uyg. açılırken ıstanbul verısını getirir
+  const [city, setCity] = useState<string>("Istanbul");  //uygulama açılırken default olarak ıstanbul verısını getirir
   const [weather, setWeather] = useState<WeatherType | null>(null);
   const [forecast, setForecast] = useState<ForecastItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
   const[favorites, setFavorites] = useState<string[]>([]);
+  const [selectedForecast, setSelectedForecast] =useState<ForecastItem | null>(null);
 
-  //hava durumuna gore background color değıs
+  const activeWeather: any = selectedForecast || weather; //gunluk tahmın seçildiyse onu gösterir yoksa  güncel hava durumunu gösterir
+
+  //hava durumuna gore background color değiş
 const getBackgroundGradient = (main?: string): readonly [ColorValue, ColorValue] =>{
   switch (main) {
     case "Clear": 
@@ -78,7 +81,7 @@ const getBackgroundGradient = (main?: string): readonly [ColorValue, ColorValue]
   }
 };
 
-  //hava durumuna uygun ıkon
+  //hava durumuna uygun ikon
 const getWeatherEmoji = (main?: string) => {
   switch (main) {
     case "Clear":
@@ -118,7 +121,7 @@ const saveFavorites = async (list: string[]) => {
   }
 };
 
-//fav sehrı ekle kaydet
+//fav sehrı yükle
 const loadFavorites = async () => {
   try {
     const data = await AsyncStorage.getItem("favorites");
@@ -182,6 +185,7 @@ const removeFavorite = (cityToRemove: string) => {
       }
 
       setWeather(data);
+      setSelectedForecast(null);
 
       const res2 = await fetch(
         `https://api.openweathermap.org/data/2.5/forecast?q=${targetCity}&appid=${API_KEY}&units=metric&lang=tr`
@@ -189,9 +193,32 @@ const removeFavorite = (cityToRemove: string) => {
 
       const data2 = await res2.json();
 
-      const daily: ForecastItem[] = data2.list.filter(
-        (item: ForecastItem) => item.dt_txt.includes("12:00:00") //gunluk tahmın ıcın saat 12de olanları alır
-      );
+ //openweatherappten gelen beş günlük tahmin verisi
+const todayStr = new Date().toDateString();
+
+
+let daily: ForecastItem[] = data2.list.filter(
+  (item: ForecastItem) => item.dt_txt.includes("12:00:00")
+);
+
+const hasToday12 = daily.some(
+  (item) =>
+    new Date(item.dt_txt).toDateString() === todayStr
+);
+
+
+if (!hasToday12) {
+  const todayItem = data2.list.find(
+    (item: ForecastItem) =>
+      new Date(item.dt_txt).toDateString() === todayStr
+  );
+
+  if (todayItem) {
+    daily = [todayItem, ...daily];
+  }
+}
+
+setForecast(daily);
 
 //gunluk tahmınler
       setForecast(daily);
@@ -212,137 +239,174 @@ const removeFavorite = (cityToRemove: string) => {
   <ActivityIndicator size="large" style={{ marginTop: 20 }} />
 )}
 
+//diğer gunlerin tahminlerini gösterme
+const isToday =(dt_txt: string) =>{
+    if (!dt_txt) return false;
+
+  const today = new Date().toDateString();
+  const itemDate = new Date(dt_txt).toDateString();
+
+  return today === itemDate;
+}
 
 
   //UI
-  return (
-<LinearGradient
-  colors={getBackgroundGradient(weather?.weather?.[0]?.main) || "Clear"}
-  style={{ flex: 1, padding: 20 }}
->
-      <TextInput
-        placeholder="Şehir giriniz..."
-        value={city}
-        onChangeText={setCity}
-        style={{
-          borderWidth: 1,
-          padding: 10,
-          marginBottom: 10,
-          borderRadius: 8,
-          backgroundColor: "#fff",
-        }}
-      />
-
-<View style={{ flexDirection: "row", marginTop: 10 }}>
-  <View style={{ flex: 1, marginRight: 5 }}>
-    <Button title="Şehri Getir" onPress={() => getWeather()} />
-  </View>
-
-  <View style={{ flex: 1, marginLeft: 5 }}>
-    <Button title="Favorilere Ekle" onPress={addFavorites} />
-  </View>
-</View>
-
-      {error ? <Text style={{ color: "red" }}>{error}</Text> : null}
-
-      {weather && (
-        <View style={{ alignItems: "center", marginTop: 20 }}>
-          <Text style={{ fontSize: 24 }}>{weather.name}</Text>
-
-<Text style={{ fontSize: 50 }}>
-  {getWeatherEmoji(weather.weather[0].main)}
-</Text>
-
-          <Text style={{ fontSize: 32 }}>
-            {Math.round(weather.main.temp)}°C
-          </Text>
-
-          <Text>{weather.weather[0].description}</Text>
-          <View style={{ marginTop: 15 }}>
-             <Text>Hissedilen: {Math.round(weather.main.feels_like)}°C</Text>
-             <Text>Nem: %{weather.main.humidity}</Text>
-             <Text> Basınç: {weather.main.pressure} hPa</Text>
-             <Text> Rüzgar: {weather.wind.speed} m/s</Text>
-           </View>
-        </View>
-      )}
-
-{/*fav sehirler*/}
-<View>
-<Text style={{marginTop:20, fontSize:18, fontWeight:"bold"}}>Favori Şehirler</Text>
-
-<FlatList
-  data={favorites}
-  extraData={favorites}
-  horizontal
-  showsHorizontalScrollIndicator={false}
-  keyExtractor={(item, index) => index.toString()}
-  contentContainerStyle={{ paddingVertical: 10 }}
-  renderItem={({ item }) => (
-   <View style={{ marginRight: 10 }}>
-  <View
-    style={{
-      backgroundColor: "#ffffff",
-      borderRadius: 14,
-      paddingVertical: 12,
-      paddingHorizontal: 18,
-      minWidth: 80,
-      justifyContent: "center",
-      alignItems: "center",
-      shadowColor: "#000",
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
-    }}
+return (
+  <LinearGradient
+    colors={getBackgroundGradient(activeWeather?.weather?.[0]?.main)}
+    style={{ flex: 1, padding: 20 }}
   >
-    {}
-    <TouchableOpacity
-      onPress={() => removeFavorite(item)}
+    {loading && (
+      <ActivityIndicator size="large" style={{ marginTop: 20 }} />
+    )}
+
+    <TextInput
+      placeholder="Şehir giriniz..."
+      value={city}
+      onChangeText={setCity}
       style={{
-        position: "absolute",
-        top: -6,
-        right: -6,
-
-        width: 18,
-        height: 18,
-        borderRadius: 9,
-        backgroundColor: "#f2f2f2",
-
-        alignItems: "center",
-        justifyContent: "center",
+        borderWidth: 1,
+        padding: 10,
+        marginBottom: 10,
+        borderRadius: 8,
+        backgroundColor: "#fff",
       }}
-    >
-      <Text style={{ color: "red", fontSize: 12, fontWeight: "bold" }}>
-        ✕
-      </Text>
-    </TouchableOpacity>
+    />
 
-    {}
-    <TouchableOpacity onPress={() => getWeather(item)}>
-      <Text style={{ color: "#000", fontSize: 14 }}>
-        {item}
-      </Text>
-    </TouchableOpacity>
-  </View>
-</View>
-  )}
-/>
-</View>
+    <View style={{ flexDirection: "row", marginTop: 10 }}>
+      <View style={{ flex: 1, marginRight: 5 }}>
+        <Button title="Şehri Getir" onPress={() => getWeather()} />
+      </View>
 
-{/*dier gunlerin hava durumu tahminleri*/}
+      <View style={{ flex: 1, marginLeft: 5 }}>
+        <Button title="Favorilere Ekle" onPress={addFavorites} />
+      </View>
+    </View>
+
+    {error ? <Text style={{ color: "red" }}>{error}</Text> : null}
+
+    {/* ANA WEATHER ALANI */}
+    {activeWeather && weather && (
+      <View style={{ alignItems: "center", marginTop: 20 }}>
+
+        {/* GÜN ETİKETİ */}
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            backgroundColor: "rgba(0,0,0,0.4)",
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            borderRadius: 8,
+          }}
+        >
+          <Text style={{ color: "#fff", fontSize: 12 }}>
+            {selectedForecast
+              ? new Date(selectedForecast.dt_txt).toLocaleDateString("tr-TR", {
+                  weekday: "long",
+                })
+              : "Bugün"}
+          </Text>
+        </View>
+
+        {/* ŞEHİR */}
+        <Text style={{ fontSize: 24 }}>{weather.name}</Text>
+
+        {/* ICON */}
+        <Text style={{ fontSize: 50 }}>
+          {getWeatherEmoji(activeWeather.weather[0].main)}
+        </Text>
+
+        {/* SICAKLIK */}
+        <Text style={{ fontSize: 32 }}>
+          {Math.round(activeWeather.main.temp)}°C
+        </Text>
+
+        <Text>{activeWeather.weather[0].description}</Text>
+
+        {/* DETAY */}
+        <View style={{ marginTop: 15 }}>
+          <Text>
+            Hissedilen: {Math.round(activeWeather.main.feels_like ?? 0)}°C
+          </Text>
+          <Text>Nem: %{activeWeather.main.humidity ?? "-"}</Text>
+          <Text>Basınç: {activeWeather.main.pressure ?? "-"} hPa</Text>
+
+          {/* SADECE WEATHER'DA VAR */}
+          {"wind" in activeWeather && (
+            <Text>Rüzgar: {activeWeather.wind.speed} m/s</Text>
+          )}
+        </View>
+      </View>
+    )}
+
+    {/* FAVORİLER */}
+    <View>
+      <Text style={{ marginTop: 20, fontSize: 18, fontWeight: "bold" }}>
+        Favori Şehirler
+      </Text>
+
       <FlatList
-        data={forecast}
-        keyExtractor={(item) => item.dt.toString()}
-       showsHorizontalScrollIndicator={false}
-       ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
-        style={{ marginTop: 20 }}
+        data={favorites}
+        horizontal
+        keyExtractor={(item, index) => index.toString()}
+        contentContainerStyle={{ paddingVertical: 10 }}
         renderItem={({ item }) => (
+          <View style={{ marginRight: 10 }}>
+            <View
+              style={{
+                backgroundColor: "#ffffff",
+                borderRadius: 14,
+                paddingVertical: 12,
+                paddingHorizontal: 18,
+                minWidth: 80,
+                justifyContent: "center",
+                alignItems: "center",
+                elevation: 3,
+              }}
+            >
+              <TouchableOpacity
+                onPress={() => removeFavorite(item)}
+                style={{
+                  position: "absolute",
+                  top: -6,
+                  right: -6,
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  backgroundColor: "#f2f2f2",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ color: "red", fontSize: 12 }}>✕</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => getWeather(item)}>
+                <Text>{item}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+      />
+    </View>
+
+    {/* FORECAST */}
+    <FlatList
+      data={forecast}
+      keyExtractor={(item) => item.dt.toString()}
+      showsHorizontalScrollIndicator={false}
+      ItemSeparatorComponent={() => <View style={{ width: 12 }} />}
+      style={{ marginTop: 20 }}
+      renderItem={({ item }) => (
+        <TouchableOpacity onPress={() => setSelectedForecast(item)}>
           <View
             style={{
               marginRight: 15,
               margin: 10,
               alignItems: "center",
-              backgroundColor: "rgba(255, 255, 255, 0.5)",
+              backgroundColor: "rgba(255,255,255,0.5)",
               padding: 10,
               borderRadius: 10,
             }}
@@ -353,14 +417,15 @@ const removeFavorite = (cityToRemove: string) => {
               })}
             </Text>
 
-  <Text style={{ fontSize: 24 }}>
-  {getWeatherEmoji(item.weather[0].main)}
-</Text>
+            <Text style={{ fontSize: 24 }}>
+              {getWeatherEmoji(item.weather[0].main)}
+            </Text>
 
             <Text>{Math.round(item.main.temp)}°C</Text>
           </View>
-        )}
-      />
-    </LinearGradient>
-  );
+        </TouchableOpacity>
+      )}
+    />
+  </LinearGradient>
+);
 }
