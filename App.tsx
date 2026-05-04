@@ -55,6 +55,7 @@ export default function App() {
   const [error, setError] = useState<string>("");
   const[favorites, setFavorites] = useState<string[]>([]);
   const [selectedForecast, setSelectedForecast] =useState<ForecastItem | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
   const activeWeather: any = selectedForecast || weather; //gunluk tahmın seçildiyse onu gösterir yoksa  güncel hava durumunu gösterir
 
@@ -249,6 +250,31 @@ const isToday =(dt_txt: string) =>{
   return today === itemDate;
 }
 
+//şehir öneri
+const getCitySuggestions = async (text: string) => {
+  setCity(text);
+
+  if (text.length < 2) {
+    setSuggestions([]);
+    return;
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.openweathermap.org/data/2.5/find?q=${text}&type=like&sort=population&cnt=5&appid=${API_KEY}`
+    );
+
+    const data = await res.json();
+
+    const cityNames = data.list.map(
+      (item: any) => `${item.name}, ${item.sys.country}`
+    );
+
+    setSuggestions(cityNames);
+  } catch (err) {
+    console.log("Şehirh hatası:", err);
+  }
+};
 
   //UI
 return (
@@ -263,7 +289,11 @@ return (
     <TextInput
       placeholder="Şehir giriniz..."
       value={city}
-      onChangeText={setCity}
+      onChangeText={getCitySuggestions}
+      onSubmitEditing={() => {
+          getWeather(city);
+          setSuggestions([]); 
+      }}
       style={{
         borderWidth: 1,
         padding: 10,
@@ -272,6 +302,34 @@ return (
         backgroundColor: "#fff",
       }}
     />
+    
+    {suggestions.length > 0 && (
+  <View
+    style={{
+      backgroundColor: "#fff",
+      borderRadius: 8,
+      marginBottom: 10,
+      maxHeight: 150,
+    }}
+  >
+    <FlatList
+      data={suggestions}
+      keyExtractor={(item, index) => index.toString()}
+      renderItem={({ item }) => (
+        <TouchableOpacity
+          onPress={() => {
+            setCity(item);
+            setSuggestions([]);
+            getWeather(item); // ⭐ direkt getir
+          }}
+          style={{ padding: 10, borderBottomWidth: 0.5 }}
+        >
+          <Text>{item}</Text>
+        </TouchableOpacity>
+      )}
+    />
+  </View>
+)}
 
     <View style={{ flexDirection: "row", marginTop: 10 }}>
       <View style={{ flex: 1, marginRight: 5 }}>
