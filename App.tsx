@@ -56,6 +56,7 @@ export default function App() {
   const[favorites, setFavorites] = useState<string[]>([]);
   const [selectedForecast, setSelectedForecast] =useState<ForecastItem | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const activeWeather: any = selectedForecast || weather; //gunluk tahmın seçildiyse onu gösterir yoksa  güncel hava durumunu gösterir
 
@@ -251,29 +252,41 @@ const isToday =(dt_txt: string) =>{
 }
 
 //şehir öneri
-const getCitySuggestions = async (text: string) => {
+const getCitySuggestions = (text: string) => {
   setCity(text);
 
-  if (text.length < 2) {
+  if (text.trim().length === 0) {
     setSuggestions([]);
     return;
   }
 
-  try {
-    const res = await fetch(
-      `https://api.openweathermap.org/data/2.5/find?q=${text}&type=like&sort=population&cnt=5&appid=${API_KEY}`
-    );
-
-    const data = await res.json();
-
-    const cityNames = data.list.map(
-      (item: any) => `${item.name}, ${item.sys.country}`
-    );
-
-    setSuggestions(cityNames);
-  } catch (err) {
-    console.log("Şehirh hatası:", err);
+  if (timeoutRef.current) {
+    clearTimeout(timeoutRef.current);
   }
+
+  timeoutRef.current = setTimeout(async () => {
+    try {
+      const res = await fetch(
+        `https://api.openweathermap.org/data/2.5/find?q=${text}&type=like&sort=population&cnt=10&appid=${API_KEY}`
+      );
+
+      const data = await res.json();
+      const list = data?.list ?? [];
+
+      let cityNames = list.map(
+        (item: any) => `${item.name}, ${item.sys.country}`
+      );
+
+      cityNames = cityNames.filter((c: string) =>
+        c.toLowerCase().startsWith(text.toLowerCase())
+      );
+
+      setSuggestions(cityNames);
+    } catch (err) {
+      console.log("Şehir hatası:", err);
+      setSuggestions([]);
+    }
+  }, 300); 
 };
 
   //UI
@@ -302,7 +315,7 @@ return (
         backgroundColor: "#fff",
       }}
     />
-    
+
     {suggestions.length > 0 && (
   <View
     style={{
@@ -320,7 +333,7 @@ return (
           onPress={() => {
             setCity(item);
             setSuggestions([]);
-            getWeather(item); // ⭐ direkt getir
+            getWeather(item); 
           }}
           style={{ padding: 10, borderBottomWidth: 0.5 }}
         >
